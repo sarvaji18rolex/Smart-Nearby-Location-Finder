@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NearMe — Location Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg:        #0b0f1a;
+    --surface:   #131929;
+    --surface2:  #1a2236;
+    --border:    #1f2d45;
+    --accent:    #00e5ff;
+    --accent2:   #7b61ff;
+    --warn:      #ff6b35;
+    --text:      #e8edf5;
+    --muted:     #6b7a99;
+    --card-glow: 0 0 0 1px var(--border), 0 4px 24px rgba(0,0,0,.5);
+    --r:         12px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 18px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.25rem;
+    letter-spacing: -.02em;
+    color: var(--accent);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .logo span { color: var(--accent2); }
+
+  .search-wrap {
+    flex: 1;
+    position: relative;
+    max-width: 520px;
+  }
+  .search-wrap input {
+    width: 100%;
+    padding: 9px 42px 9px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: .92rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap button.search-btn {
+    position: absolute;
+    right: 4px; top: 50%;
+    transform: translateY(-50%);
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    width: 30px; height: 28px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg);
+  }
+  .autocomplete-list {
+    position: absolute;
+    top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    z-index: 999;
+    overflow: hidden;
+    display: none;
+  }
+  .autocomplete-list.open { display: block; }
+  .autocomplete-list li {
+    list-style: none;
+    padding: 9px 14px;
+    font-size: .85rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background .15s;
+  }
+  .autocomplete-list li:last-child { border-bottom: none; }
+  .autocomplete-list li:hover { background: var(--surface); }
+
+  .btn-locate {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: .85rem;
+    white-space: nowrap;
+    transition: border-color .2s, background .2s;
+  }
+  .btn-locate:hover { border-color: var(--accent); background: var(--surface); }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 340px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .filter-bar {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .filter-bar h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 10px;
+  }
+  .cats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .cat-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--muted);
+    font-size: .78rem;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .cat-btn:hover, .cat-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+
+  .radius-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .radius-row label {
+    font-size: .8rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .radius-row input[type=range] {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+  .radius-row .radius-val {
+    font-size: .82rem;
+    color: var(--accent);
+    min-width: 48px;
+    text-align: right;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+  }
+
+  .results-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px 6px;
+    flex-shrink: 0;
+  }
+  .results-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .count-badge {
+    background: var(--accent2);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+
+  .places-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 8px 12px;
+  }
+  .places-list::-webkit-scrollbar { width: 4px; }
+  .places-list::-webkit-scrollbar-track { background: transparent; }
+  .places-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .place-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .2s, transform .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .place-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .place-card:hover, .place-card.active {
+    border-color: var(--accent);
+    transform: translateX(2px);
+  }
+  .place-card:hover::before, .place-card.active::before { opacity: 1; }
+
+  .pc-top {
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .pc-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    background: var(--surface);
+  }
+  .pc-info { flex: 1; min-width: 0; }
+  .pc-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: .9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pc-kind {
+    font-size: .75rem;
+    color: var(--muted);
+    text-transform: capitalize;
+    margin-top: 1px;
+  }
+  .pc-dist {
+    font-family: 'Syne', sans-serif;
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .pc-details {
+    margin-top: 8px;
+    font-size: .78rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .pc-detail-row { display: flex; align-items: center; gap: 5px; }
+  .pc-detail-row a { color: var(--accent2); text-decoration: none; }
+  .pc-detail-row a:hover { text-decoration: underline; }
+
+  /* ── MAP ── */
+  #map {
+    flex: 1;
+    position: relative;
+  }
+
+  /* ── LOADING ── */
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(11,15,26,.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s;
+  }
+  .loading-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: .85rem;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity .3s, transform .3s;
+    pointer-events: none;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── DETAIL PANEL (popup) ── */
+  .detail-panel {
+    position: absolute;
+    bottom: 24px; right: 16px;
+    width: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+    z-index: 400;
+    box-shadow: var(--card-glow);
+    display: none;
+    animation: slideUp .25s ease;
+  }
+  .detail-panel.open { display: block; }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .dp-close {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: none; border: none;
+    color: var(--muted);
+    cursor: pointer; font-size: 1rem;
+  }
+  .dp-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    padding-right: 20px;
+    margin-bottom: 4px;
+  }
+  .dp-kind {
+    font-size: .78rem;
+    color: var(--accent);
+    text-transform: capitalize;
+    margin-bottom: 10px;
+  }
+  .dp-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: .8rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .dp-row a { color: var(--accent2); text-decoration: none; }
+  .dp-row a:hover { text-decoration: underline; }
+  .dp-row .icon { font-size: .95rem; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--muted);
+    gap: 10px;
+    padding: 24px;
+  }
+  .empty-state .es-icon { font-size: 2.5rem; }
+  .empty-state p { font-size: .85rem; line-height: 1.6; }
+
+  /* Leaflet popup override */
+  .leaflet-popup-content-wrapper {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--card-glow) !important;
+  }
+  .leaflet-popup-tip { background: var(--surface2) !important; }
+  .leaflet-popup-content { margin: 10px 14px !important; }
+  .lp-title { font-family: 'Syne',sans-serif; font-weight:700; font-size:.9rem; }
+  .lp-kind  { font-size:.75rem; color:#6b7a99; text-transform:capitalize; margin-top:2px; }
+  .lp-dist  { font-size:.78rem; color:var(--accent); margin-top:4px; font-family:'Syne',sans-serif; }
+
+  @media (max-width: 700px) {
+    .sidebar { width: 100%; height: 50vh; border-right: none; border-top: 1px solid var(--border); order: 2; }
+    .main { flex-direction: column; }
+    #map { order: 1; height: 50vh; }
+    header { flex-wrap: wrap; }
+    .search-wrap { order: 2; flex-basis: 100%; max-width: 100%; }
+    .detail-panel { right: 8px; left: 8px; width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Near<span>Me</span></div>
+
+  <div class="search-wrap">
+    <input type="text" id="searchInput" placeholder="Search for a city, address, or place…" autocomplete="off"/>
+    <button class="search-btn" onclick="doSearch()" title="Search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </button>
+    <ul class="autocomplete-list" id="acList"></ul>
+  </div>
+
+  <button class="btn-locate" onclick="useMyLocation()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+    </svg>
+    My Location
+  </button>
+</header>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="filter-bar">
+      <h3>Category</h3>
+      <div class="cats" id="catBtns"></div>
+    </div>
+    <div class="radius-row">
+      <label>Radius</label>
+      <input type="range" id="radiusSlider" min="200" max="5000" step="100" value="1000" oninput="updateRadius(this.value)"/>
+      <span class="radius-val" id="radiusLabel">1 km</span>
+    </div>
+    <div class="results-header">
+      <h2>Nearby Places</h2>
+      <span class="count-badge" id="countBadge">0</span>
+    </div>
+    <div class="places-list" id="placesList">
+      <div class="empty-state">
+        <div class="es-icon">🗺️</div>
+        <p>Search for a location or use<br/>your current position to discover<br/>nearby places.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAP -->
+  <div id="map">
+    <div class="loading-overlay" id="loader">
+      <div class="spinner"></div>
+    </div>
+    <!-- Detail panel -->
+    <div class="detail-panel" id="detailPanel">
+      <button class="dp-close" onclick="closeDetail()">✕</button>
+      <div class="dp-name" id="dpName"></div>
+      <div class="dp-kind" id="dpKind"></div>
+      <div id="dpBody"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const CATEGORIES = [
+  { id:"all",           label:"All",          emoji:"🌐" },
+  { id:"restaurant",    label:"Food",          emoji:"🍽️" },
+  { id:"hospital",      label:"Health",        emoji:"🏥" },
+  { id:"hotel",         label:"Hotels",        emoji:"🏨" },
+  { id:"shopping",      label:"Shopping",      emoji:"🛒" },
+  { id:"bank",          label:"Bank/ATM",      emoji:"🏦" },
+  { id:"school",        label:"Education",     emoji:"🎓" },
+  { id:"park",          label:"Parks",         emoji:"🌳" },
+  { id:"transport",     label:"Transport",     emoji:"🚌" },
+  { id:"fuel",          label:"Fuel",          emoji:"⛽" },
+  { id:"worship",       label:"Worship",       emoji:"🕌" },
+  { id:"entertainment", label:"Fun",           emoji:"🎭" },
+];
+
+const KIND_EMOJI = {
+  restaurant:"🍽️", cafe:"☕", fast_food:"🍔", bar:"🍺", pub:"🍺",
+  hospital:"🏥", clinic:"💊", pharmacy:"💊", doctors:"👨‍⚕️",
+  hotel:"🏨", hostel:"🏨", motel:"🏨", guest_house:"🏨",
+  school:"🎓", university:"🎓", college:"🎓", library:"📚",
+  supermarket:"🛒", mall:"🏬", shop:"🛍️", clothes:"👗", electronics:"📱",
+  bank:"🏦", atm:"💳",
+  fuel:"⛽",
+  park:"🌳", garden:"🌷", playground:"🛝", sports_centre:"⚽",
+  bus_station:"🚌", taxi:"🚕", parking:"🅿️",
+  place_of_worship:"🕌",
+  cinema:"🎬", theatre:"🎭", nightclub:"🎉", casino:"🎰",
+};
+
+const kindEmoji = k => KIND_EMOJI[k] || "📍";
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let map, userMarker, circleOverlay;
+let markers = [];
+let currentLat = null, currentLon = null;
+let currentCat = "all";
+let currentRadius = 1000;
+let acTimeout = null;
+
+// ── INIT MAP ─────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map("map", { zoomControl: false }).setView([20, 78], 5);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(map);
+  L.control.zoom({ position: "topright" }).addTo(map);
+
+  map.on("click", e => {
+    if (e.originalEvent.target.closest(".leaflet-marker-icon")) return;
+    closeDetail();
+    setLocation(e.latlng.lat, e.latlng.lng, true);
+  });
+}
+
+// ── CATEGORY BUTTONS ─────────────────────────────────────────────────────────
+function buildCategoryButtons() {
+  const wrap = document.getElementById("catBtns");
+  CATEGORIES.forEach(c => {
+    const btn = document.createElement("button");
+    btn.className = "cat-btn" + (c.id === "all" ? " active" : "");
+    btn.dataset.id = c.id;
+    btn.textContent = c.emoji + " " + c.label;
+    btn.onclick = () => {
+      document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentCat = c.id;
+      if (currentLat !== null) searchNearby();
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+// ── RADIUS ───────────────────────────────────────────────────────────────────
+function updateRadius(v) {
+  currentRadius = parseInt(v);
+  document.getElementById("radiusLabel").textContent =
+    currentRadius >= 1000 ? (currentRadius/1000).toFixed(1) + " km" : currentRadius + " m";
+  if (currentLat !== null) {
+    updateCircle();
+    debounceSearch();
+  }
+}
+
+let searchTimer = null;
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(searchNearby, 600);
+}
+
+// ── SET LOCATION ──────────────────────────────────────────────────────────────
+function setLocation(lat, lon, doSearch = false) {
+  currentLat = lat;
+  currentLon = lon;
+
+  if (userMarker) map.removeLayer(userMarker);
+  const icon = L.divIcon({
+    html: `<div style="background:var(--accent);width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 3px var(--accent)"></div>`,
+    iconSize: [14, 14], iconAnchor: [7, 7], className: ""
+  });
+  userMarker = L.marker([lat, lon], { icon }).addTo(map)
+    .bindPopup("<b>You are here</b>").openPopup();
+
+  updateCircle();
+  map.flyTo([lat, lon], 14, { duration: 1.2 });
+
+  if (doSearch) searchNearby();
+}
+
+function updateCircle() {
+  if (circleOverlay) map.removeLayer(circleOverlay);
+  if (currentLat === null) return;
+  circleOverlay = L.circle([currentLat, currentLon], {
+    radius: currentRadius,
+    color: "#00e5ff",
+    fillColor: "#00e5ff",
+    fillOpacity: .05,
+    weight: 1,
+  }).addTo(map);
+}
+
+// ── MY LOCATION ───────────────────────────────────────────────────────────────
+function useMyLocation() {
+  if (!navigator.geolocation) { toast("Geolocation not supported"); return; }
+  setLoading(true);
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      setLocation(pos.coords.latitude, pos.coords.longitude, true);
+    },
+    err => {
+      setLoading(false);
+      toast("Could not get your location: " + err.message);
+    },
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+}
+
+// ── GEOCODE SEARCH ────────────────────────────────────────────────────────────
+async function doSearch() {
+  const q = document.getElementById("searchInput").value.trim();
+  if (!q) return;
+  setLoading(true);
+  closeAC();
+  try {
+    const res = await fetch("/api/geocode?" + new URLSearchParams({ q }));
+    const data = await res.json();
+    if (!data.length) { toast("Location not found"); return; }
+    const first = data[0];
+    setLocation(first.lat, first.lon, true);
+  } catch(e) {
+    toast("Search failed: " + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── AUTOCOMPLETE ──────────────────────────────────────────────────────────────
+document.getElementById("searchInput").addEventListener("input", function() {
+  clearTimeout(acTimeout);
+  const q = this.value.trim();
+  if (q.length < 3) { closeAC(); return; }
+  acTimeout = setTimeout(async () => {
+    const res = await fetch("/api/suggest?" + new URLSearchParams({ q })).catch(() => null);
+    if (!res) return;
+    const data = await res.json();
+    renderAC(data);
+  }, 300);
+});
+
+document.getElementById("searchInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); doSearch(); }
+});
+
+document.addEventListener("click", e => {
+  if (!e.target.closest(".search-wrap")) closeAC();
+});
+
+function renderAC(items) {
+  const list = document.getElementById("acList");
+  list.innerHTML = "";
+  if (!items.length) { closeAC(); return; }
+  items.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = item.label;
+    li.onclick = () => {
+      document.getElementById("searchInput").value = item.label;
+      closeAC();
+      setLocation(item.lat, item.lon, true);
+    };
+    list.appendChild(li);
+  });
+  list.classList.add("open");
+}
+function closeAC() {
+  document.getElementById("acList").classList.remove("open");
+}
+
+// ── NEARBY SEARCH ─────────────────────────────────────────────────────────────
+async function searchNearby() {
+  if (currentLat === null) return;
+  setLoading(true);
+  clearMarkers();
+  closeDetail();
+
+  try {
+    const params = new URLSearchParams({
+      lat: currentLat, lon: currentLon,
+      radius: currentRadius, category: currentCat,
+    });
+    const res = await fetch("/api/nearby?" + params);
+    const data = await res.json();
+    if (data.error) { toast(data.error); return; }
+    renderPlaces(data.places || []);
+  } catch(e) {
+    toast("Search error: " + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── RENDER PLACES ─────────────────────────────────────────────────────────────
+function renderPlaces(places) {
+  document.getElementById("countBadge").textContent = places.length;
+  const list = document.getElementById("placesList");
+
+  if (!places.length) {
+    list.innerHTML = `<div class="empty-state"><div class="es-icon">🔍</div><p>No places found in this area.<br/>Try a different category or increase the radius.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+  places.forEach((p, i) => {
+    // Card
+    const card = document.createElement("div");
+    card.className = "place-card";
+    card.dataset.idx = i;
+
+    const dist = p.dist_m >= 1000
+      ? (p.dist_m/1000).toFixed(1) + " km"
+      : p.dist_m + " m";
+
+    let details = "";
+    if (p.address) details += `<div class="pc-detail-row">📍 ${p.address}</div>`;
+    if (p.hours)   details += `<div class="pc-detail-row">🕐 ${p.hours}</div>`;
+    if (p.phone)   details += `<div class="pc-detail-row">📞 <a href="tel:${p.phone}">${p.phone}</a></div>`;
+    if (p.website) details += `<div class="pc-detail-row">🌐 <a href="${p.website}" target="_blank">Website</a></div>`;
+
+    card.innerHTML = `
+      <div class="pc-top">
+        <div class="pc-icon">${kindEmoji(p.kind)}</div>
+        <div class="pc-info">
+          <div class="pc-name">${esc(p.name)}</div>
+          <div class="pc-kind">${p.kind.replace(/_/g," ")}</div>
+        </div>
+        <div class="pc-dist">${dist}</div>
+      </div>
+      ${details ? `<div class="pc-details">${details}</div>` : ""}
+    `;
+
+    card.onclick = () => focusPlace(p, card);
+    list.appendChild(card);
+
+    // Map marker
+    addMarker(p, i);
+  });
+
+  window._places = places;
+}
+
+// ── MARKERS ───────────────────────────────────────────────────────────────────
+function addMarker(p, idx) {
+  const icon = L.divIcon({
+    html: `<div style="
+      background:var(--surface2);
+      border:2px solid var(--accent);
+      border-radius:50% 50% 50% 0;
+      transform:rotate(-45deg);
+      width:28px;height:28px;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 2px 8px rgba(0,229,255,.3);
+    "><span style="transform:rotate(45deg);font-size:.95rem;">${kindEmoji(p.kind)}</span></div>`,
+    iconSize: [28, 28], iconAnchor: [14, 28], className: "",
+  });
+
+  const dist = p.dist_m >= 1000
+    ? (p.dist_m/1000).toFixed(1) + " km"
+    : p.dist_m + " m";
+
+  const m = L.marker([p.lat, p.lon], { icon })
+    .bindPopup(`
+      <div class="lp-title">${esc(p.name)}</div>
+      <div class="lp-kind">${p.kind.replace(/_/g," ")}</div>
+      <div class="lp-dist">${dist} away</div>
+    `)
+    .addTo(map);
+
+  m.on("click", () => {
+    focusPlace(p);
+  });
+
+  markers.push(m);
+}
+
+function clearMarkers() {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+}
+
+// ── FOCUS PLACE ───────────────────────────────────────────────────────────────
+function focusPlace(p, card) {
+  map.flyTo([p.lat, p.lon], 17, { duration: .8 });
+
+  // highlight card
+  document.querySelectorAll(".place-card").forEach(c => c.classList.remove("active"));
+  if (card) {
+    card.classList.add("active");
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // detail panel
+  document.getElementById("dpName").textContent = p.name;
+  document.getElementById("dpKind").textContent = kindEmoji(p.kind) + " " + p.kind.replace(/_/g," ");
+
+  const dist = p.dist_m >= 1000 ? (p.dist_m/1000).toFixed(1) + " km" : p.dist_m + " m";
+  let rows = `<div class="dp-row"><span class="icon">📏</span> ${dist} from your location</div>`;
+  if (p.address) rows += `<div class="dp-row"><span class="icon">📍</span> ${esc(p.address)}</div>`;
+  if (p.hours)   rows += `<div class="dp-row"><span class="icon">🕐</span> ${esc(p.hours)}</div>`;
+  if (p.cuisine) rows += `<div class="dp-row"><span class="icon">🍴</span> ${esc(p.cuisine)}</div>`;
+  if (p.phone)   rows += `<div class="dp-row"><span class="icon">📞</span> <a href="tel:${p.phone}">${esc(p.phone)}</a></div>`;
+  if (p.website) rows += `<div class="dp-row"><span class="icon">🌐</span> <a href="${esc(p.website)}" target="_blank">Visit website</a></div>`;
+  if (p.wheelchair) rows += `<div class="dp-row"><span class="icon">♿</span> Wheelchair: ${p.wheelchair}</div>`;
+  rows += `<div class="dp-row" style="margin-top:8px"><a href="https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}&zoom=17" target="_blank" style="color:var(--accent)">View on OpenStreetMap ↗</a></div>`;
+
+  document.getElementById("dpBody").innerHTML = rows;
+  document.getElementById("detailPanel").classList.add("open");
+}
+
+function closeDetail() {
+  document.getElementById("detailPanel").classList.remove("open");
+  document.querySelectorAll(".place-card").forEach(c => c.classList.remove("active"));
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function setLoading(v) {
+  document.getElementById("loader").classList.toggle("visible", v);
+}
+
+function toast(msg, duration = 3000) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), duration);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+initMap();
+buildCategoryButtons();
+</script>
+</body>
+</html>

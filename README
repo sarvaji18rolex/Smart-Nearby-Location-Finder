@@ -1,0 +1,84 @@
+# NearMe — Location Finder / Nearby Places App
+
+A full-stack Python web app to discover nearby places using **completely free APIs** — no API key required.
+
+---
+
+## 🔧 Tech Stack
+
+| Layer     | Tech                                      |
+|-----------|-------------------------------------------|
+| Backend   | Python 3 + Flask                          |
+| Geocoding | Nominatim (OpenStreetMap) — free, no key  |
+| POI data  | Overpass API (OpenStreetMap) — free, no key |
+| Map tiles | OpenStreetMap via Leaflet.js — free       |
+| Frontend  | Vanilla JS + Leaflet.js                   |
+
+---
+
+## ✨ Features
+
+- 🔍 **Search by address / city / landmark** with autocomplete
+- 📍 **Use your current GPS location** (browser geolocation)
+- 🗺️ **Interactive map** with clickable markers
+- 🏷️ **12 categories**: Food, Health, Hotels, Shopping, Bank/ATM, Education, Parks, Transport, Fuel, Worship, Entertainment, All
+- 📏 **Adjustable radius** (200 m – 5 km)
+- 📋 **Sorted results** by distance with details panel
+- 📞 Phone, website, opening hours, wheelchair info
+- 🌐 OpenStreetMap link for every place
+- 🖱️ Click anywhere on the map to search that spot
+- 📱 Responsive (works on mobile)
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# 1. Install dependency (only Flask needed!)
+pip install flask
+
+# 2. Run the server
+python app.py
+
+# 3. Open in browser
+# http://localhost:5000
+```
+
+---
+
+## 📁 Project Structure
+
+```
+location_finder/
+├── app.py              ← Flask backend + all API logic
+├── requirements.txt    ← Only "flask"
+├── README.md
+└── templates/
+    └── index.html      ← Full frontend (map + UI)
+```
+
+---
+
+## 🔌 API Endpoints
+
+| Endpoint          | Description                          |
+|-------------------|--------------------------------------|
+| `GET /`           | Serve the web app                    |
+| `GET /api/geocode?q=` | Forward geocode (address → lat/lon) |
+| `GET /api/reverse?lat=&lon=` | Reverse geocode (lat/lon → address) |
+| `GET /api/nearby?lat=&lon=&radius=&category=` | Nearby places search |
+| `GET /api/suggest?q=` | Autocomplete suggestions |
+
+---
+
+## 🗂️ Supported Categories
+
+`all`, `restaurant`, `hospital`, `hotel`, `shopping`, `bank`, `school`, `park`, `transport`, `fuel`, `worship`, `entertainment`
+
+---
+
+## ⚠️ Notes
+
+- Nominatim has a **1 request/second** rate limit — the app respects this for normal use.
+- Overpass API is free but may be slow for large radius queries. Radius is capped at 10 km.
+- No API keys, no registration, no billing — 100% free and open data.
