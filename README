@@ -1,84 +1,100 @@
-# NearMe — Location Finder / Nearby Places App
+# 🗺️ Smart Nearby Location Finder
 
-A full-stack Python web app to discover nearby places using **completely free APIs** — no API key required.
+## 📌 Overview
+Smart Nearby Location Finder is a web application that allows users to discover nearby essential services such as restaurants, hospitals, and ATMs based on their current location.
 
----
-
-## 🔧 Tech Stack
-
-| Layer     | Tech                                      |
-|-----------|-------------------------------------------|
-| Backend   | Python 3 + Flask                          |
-| Geocoding | Nominatim (OpenStreetMap) — free, no key  |
-| POI data  | Overpass API (OpenStreetMap) — free, no key |
-| Map tiles | OpenStreetMap via Leaflet.js — free       |
-| Frontend  | Vanilla JS + Leaflet.js                   |
+The application integrates Google Maps API to provide real-time, accurate, and interactive location-based results.
 
 ---
 
-## ✨ Features
-
-- 🔍 **Search by address / city / landmark** with autocomplete
-- 📍 **Use your current GPS location** (browser geolocation)
-- 🗺️ **Interactive map** with clickable markers
-- 🏷️ **12 categories**: Food, Health, Hotels, Shopping, Bank/ATM, Education, Parks, Transport, Fuel, Worship, Entertainment, All
-- 📏 **Adjustable radius** (200 m – 5 km)
-- 📋 **Sorted results** by distance with details panel
-- 📞 Phone, website, opening hours, wheelchair info
-- 🌐 OpenStreetMap link for every place
-- 🖱️ Click anywhere on the map to search that spot
-- 📱 Responsive (works on mobile)
+## 🚀 Features
+- 📍 Detect user’s current location
+- 🍽️ Find nearby restaurants
+- 🏥 Locate hospitals
+- 🏧 Discover nearby ATMs
+- 🗺️ Interactive map view
+- ⚡ Fast and responsive UI
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Tech Stack
+- Frontend: HTML, CSS, JavaScript
+- Backend: Python (Flask) / Node.js (optional)
+- API: Google Maps API
 
-```bash
-# 1. Install dependency (only Flask needed!)
-pip install flask
+---
 
-# 2. Run the server
+## 🔑 API Used
+- Google Maps JavaScript API
+- Places API
+
+---
+
+## 📂 Project Structure
+
+project/
+│── templates/
+│── static/
+│── app.py
+│── requirements.txt
+│── README.md
+
+
+---
+
+## ⚙️ Installation & Setup
+
+1. Clone the repository
+
+git clone https://github.com/your-username/nearby-location-finder.git
+
+cd nearby-location-finder
+
+
+2. Create virtual environment
+
+python -m venv venv
+venv\Scripts\activate # Windows
+
+
+3. Install dependencies
+
+pip install -r requirements.txt
+
+
+4. Add your API Key
+
+Replace YOUR_API_KEY in your code with Google Maps API key
+
+
+5. Run the application
+
 python app.py
 
-# 3. Open in browser
-# http://localhost:5000
-```
+
+6. Open in browser
+
+http://127.0.0.1:5000
+
 
 ---
 
-## 📁 Project Structure
-
-```
-location_finder/
-├── app.py              ← Flask backend + all API logic
-├── requirements.txt    ← Only "flask"
-├── README.md
-└── templates/
-    └── index.html      ← Full frontend (map + UI)
-```
+## 📸 Screenshots
+(Add screenshots here)
 
 ---
 
-## 🔌 API Endpoints
-
-| Endpoint          | Description                          |
-|-------------------|--------------------------------------|
-| `GET /`           | Serve the web app                    |
-| `GET /api/geocode?q=` | Forward geocode (address → lat/lon) |
-| `GET /api/reverse?lat=&lon=` | Reverse geocode (lat/lon → address) |
-| `GET /api/nearby?lat=&lon=&radius=&category=` | Nearby places search |
-| `GET /api/suggest?q=` | Autocomplete suggestions |
+## 💡 Future Enhancements
+- ⭐ Add user reviews & ratings
+- 📱 Mobile responsive UI
+- 🔍 Search filters (distance, rating)
+- 🧭 Route navigation feature
 
 ---
 
-## 🗂️ Supported Categories
-
-`all`, `restaurant`, `hospital`, `hotel`, `shopping`, `bank`, `school`, `park`, `transport`, `fuel`, `worship`, `entertainment`
+## 👨‍💻 Author
+Sarvaji M
 
 ---
 
-## ⚠️ Notes
 
-- Nominatim has a **1 request/second** rate limit — the app respects this for normal use.
-- Overpass API is free but may be slow for large radius queries. Radius is capped at 10 km.
-- No API keys, no registration, no billing — 100% free and open data.
